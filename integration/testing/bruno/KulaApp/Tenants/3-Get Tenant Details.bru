@@ -1,0 +1,27 @@
+meta {
+  name: Get Tenant Details
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/api/v1/tenants/{{tenant_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Retrieve tenant details. Accessible by:
+  - Global admins (any tenant)
+  - Tenant owner
+  - Tenant members
+  
+  Path Parameters:
+  - tenantId (required): UUID of the tenant
+  
+  Response: TenantResponse with full tenant details
+}

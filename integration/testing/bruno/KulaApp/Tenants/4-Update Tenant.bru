@@ -1,0 +1,35 @@
+meta {
+  name: Update Tenant
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{base_url}}/api/v1/tenants/{{tenant_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "name": "Smith Family Updated",
+    "description": "Updated tenant description"
+  }
+}
+
+docs {
+  Update tenant details. Only tenant owner or global admin can update.
+  
+  Path Parameters:
+  - tenantId (required): UUID of the tenant
+  
+  Request Body:
+  - name (optional): New tenant name
+  - description (optional): New tenant description
+  
+  Response: TenantResponse with updated details
+}

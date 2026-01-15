@@ -1,0 +1,28 @@
+meta {
+  name: Remove Tenant Member
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{base_url}}/api/v1/tenants/{{tenant_id}}/members?userId={{member_user_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Remove a member from the tenant. Owner only.
+  Cannot remove the owner themselves.
+  
+  Path Parameters:
+  - tenantId (required): UUID of the tenant
+  
+  Query Parameters:
+  - userId (required): UUID of the user to remove
+  
+  Response: 204 No Content on success
+}

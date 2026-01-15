@@ -1,0 +1,42 @@
+meta {
+  name: Create Event
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/v1/events
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Doctor Appointment",
+    "description": "Annual checkup",
+    "startTime": "2025-12-15T10:00:00Z",
+    "endTime": "2025-12-15T11:00:00Z",
+    "assignedTo": "{{assigned_user_id}}"
+  }
+}
+
+docs {
+  Create a new calendar event in the current tenant context.
+  
+  Validation:
+  - start_time < end_time
+  - assigned_to (if provided) is a tenant member
+  
+  Request Body:
+  - title (required): Event title
+  - description (optional): Event description
+  - startTime (required): ISO 8601 datetime
+  - endTime (required): ISO 8601 datetime (must be after startTime)
+  - assignedTo (optional): UUID of tenant member to assign to
+  
+  Response: EventResponse with eventId and details
+}

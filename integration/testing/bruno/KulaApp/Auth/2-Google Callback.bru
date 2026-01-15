@@ -1,0 +1,21 @@
+meta {
+  name: Google Callback
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/v1/auth/google/callback?code={{google_auth_code}}&state={{csrf_state}}
+  body: none
+  auth: none
+}
+
+docs {
+  Handles Google OAuth callback, validates token, creates/updates user, and returns JWT.
+  
+  Query Parameters:
+  - code (required): Authorization code from Google
+  - state (optional): CSRF protection state parameter
+  
+  Response: AuthResponse with accessToken and refreshToken
+}

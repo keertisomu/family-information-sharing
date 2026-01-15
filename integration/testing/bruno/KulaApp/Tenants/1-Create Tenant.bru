@@ -1,0 +1,33 @@
+meta {
+  name: Create Tenant
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/v1/tenants
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "name": "Somu-Family",
+    "ownerId": "8c965f17-11d3-4c53-bc7c-26f39fe7d95d"
+  }
+}
+
+docs {
+  Global admin creates a new tenant (family workspace) and designates an owner.
+  Only users with is_global_admin=true can call this endpoint.
+  
+  Request Body:
+  - name (required): Name of the tenant
+  - ownerId (required): UUID of the user to be tenant owner
+  
+  Response: TenantResponse with tenantId and details
+}

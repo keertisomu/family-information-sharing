@@ -1,0 +1,439 @@
+openapi: 3.0.3
+info:
+  title: Family Calendar API - Events
+  description: Calendar event management with filtering
+  version: 1.0.0
+servers:
+  - url: https://api.familycalendar.com/api/v1
+    description: Production server
+  - url: http://localhost:5000/api/v1
+    description: Development server
+
+paths:
+  /events:
+    post:
+      summary: Create calendar event
+      description: |
+        Create a new calendar event in the current tenant context.
+        Validates:
+        - start_time < end_time
+        - assigned_to (if provided) is a tenant member
+      operationId: createEvent
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          description: Invalid request (start >= end, assigned_to not member)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidTime:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    message: start_time must be before end_time
+                invalidAssignment:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    message: assigned_to user is not a member of this tenant
+        '403':
+          description: Forbidden - not a tenant member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List calendar events
+      description: |
+        Retrieve events with filtering and pagination.
+        All events are scoped to the current tenant (from JWT claim).
+        
+        Performance optimizations:
+        - Date range required (max 4 weeks span)
+        - Composite index on (tenant_id, start_time)
+        - Text search uses ILIKE (case-insensitive, no full-text indexing for prototype)
+      operationId: listEvents
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: '2025-12-01T00:00:00Z'
+          description: Start of date range (ISO 8601)
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: '2025-12-31T23:59:59Z'
+          description: End of date range (max 4 weeks from startDate)
+        - name: search
+          in: query
+          schema:
+            type: string
+          example: 'dentist appointment'
+          description: Text search in title and description (case-insensitive)
+        - name: assignedTo
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by assigned user (optional)
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+          description: Items per page
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventListResponse'
+        '400':
+          description: Invalid date range (> 4 weeks)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 400
+                error: Bad Request
+                message: Date range cannot exceed 4 weeks
+
+  /events/{eventId}:
+    get:
+      summary: Get event details
+      description: Retrieve single event by ID (tenant-scoped)
+      operationId: getEvent
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '404':
+          description: Event not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update event
+      description: |
+        Update existing calendar event.
+        Validates:
+        - start_time < end_time
+        - assigned_to (if provided) is a tenant member
+      operationId: updateEvent
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventRequest'
+      responses:
+        '200':
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          description: Invalid request (start >= end, assigned_to not member)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete event
+      description: Permanently delete calendar event (hard delete)
+      operationId: deleteEvent
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Event deleted
+        '404':
+          description: Event not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateEventRequest:
+      type: object
+      required:
+        - title
+        - startTime
+        - endTime
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          example: Dentist Appointment
+          description: Event title
+        description:
+          type: string
+          nullable: true
+          example: Annual checkup at Main Street Dental
+          description: Event description (optional)
+        startTime:
+          type: string
+          format: date-time
+          example: '2025-12-15T14:00:00Z'
+          description: Event start time (ISO 8601)
+        endTime:
+          type: string
+          format: date-time
+          example: '2025-12-15T15:00:00Z'
+          description: Event end time (ISO 8601, must be > startTime)
+        location:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: 123 Main St, Springfield
+          description: Event location (optional)
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          example: 123e4567-e89b-12d3-a456-426614174000
+          description: User ID to assign event to (must be tenant member)
+
+    UpdateEventRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          example: Updated Dentist Appointment
+        description:
+          type: string
+          nullable: true
+          example: Rescheduled annual checkup
+        startTime:
+          type: string
+          format: date-time
+          example: '2025-12-16T14:00:00Z'
+        endTime:
+          type: string
+          format: date-time
+          example: '2025-12-16T15:00:00Z'
+        location:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: 456 Oak Ave, Springfield
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          example: 123e4567-e89b-12d3-a456-426614174000
+
+    EventResponse:
+      type: object
+      required:
+        - eventId
+        - tenantId
+        - title
+        - startTime
+        - endTime
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          example: 999e8400-e29b-41d4-a716-446655440000
+        tenantId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        title:
+          type: string
+          example: Dentist Appointment
+        description:
+          type: string
+          nullable: true
+          example: Annual checkup at Main Street Dental
+        startTime:
+          type: string
+          format: date-time
+          example: '2025-12-15T14:00:00Z'
+        endTime:
+          type: string
+          format: date-time
+          example: '2025-12-15T15:00:00Z'
+        location:
+          type: string
+          nullable: true
+          example: 123 Main St, Springfield
+        assignedTo:
+          type: object
+          nullable: true
+          description: Assigned user details (null if not assigned)
+          required:
+            - userId
+            - name
+            - email
+          properties:
+            userId:
+              type: string
+              format: uuid
+              example: 123e4567-e89b-12d3-a456-426614174000
+            name:
+              type: string
+              example: Jane Smith
+            email:
+              type: string
+              format: email
+              example: jane.smith@gmail.com
+        createdBy:
+          type: object
+          required:
+            - userId
+            - name
+          properties:
+            userId:
+              type: string
+              format: uuid
+              example: 789e4567-e89b-12d3-a456-426614174111
+            name:
+              type: string
+              example: John Smith
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-12-06T10:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2025-12-06T10:30:00Z'
+
+    EventListResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventResponse'
+        meta:
+          type: object
+          required:
+            - page
+            - limit
+            - total
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 50
+            total:
+              type: integer
+              example: 127
+
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - error
+        - message
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+          example: Detailed error description

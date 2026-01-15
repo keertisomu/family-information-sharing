@@ -1,0 +1,225 @@
+openapi: 3.0.3
+info:
+  title: Family Calendar API - Authentication
+  description: Google OAuth authentication and JWT token management
+  version: 1.0.0
+servers:
+  - url: https://api.familycalendar.com/api/v1
+    description: Production server
+  - url: http://localhost:5000/api/v1
+    description: Development server
+
+paths:
+  /auth/google/login:
+    get:
+      summary: Initiate Google OAuth flow
+      description: Redirects user to Google OAuth consent screen
+      operationId: initiateGoogleLogin
+      tags:
+        - Authentication
+      responses:
+        '302':
+          description: Redirect to Google OAuth
+          headers:
+            Location:
+              schema:
+                type: string
+                example: https://accounts.google.com/o/oauth2/v2/auth?...
+
+  /auth/google/callback:
+    get:
+      summary: Google OAuth callback
+      description: Handles Google OAuth callback, validates token, creates/updates user, returns JWT
+      operationId: googleCallback
+      tags:
+        - Authentication
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Authorization code from Google
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+          description: CSRF protection state parameter
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 401
+                error: Unauthorized
+                message: Invalid or expired authorization code
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Exchange refresh token for new access token
+      operationId: refreshToken
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/select-tenant:
+    post:
+      summary: Select active tenant context
+      description: |
+        Generates new JWT with specified tenant_id for users who are members of multiple tenants.
+        Validates user has membership in requested tenant.
+      operationId: selectTenant
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+              properties:
+                tenantId:
+                  type: string
+                  format: uuid
+                  example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Tenant context switched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '403':
+          description: User not a member of specified tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuthResponse:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - user
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (1 hour expiry)
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          description: JWT refresh token (7 days expiry)
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user:
+          $ref: '#/components/schemas/UserInfo'
+        tenant:
+          $ref: '#/components/schemas/TenantInfo'
+          description: Current tenant context (if user is member of any tenant)
+
+    UserInfo:
+      type: object
+      required:
+        - userId
+        - email
+        - name
+        - isGlobalAdmin
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: john.doe@gmail.com
+        name:
+          type: string
+          example: John Doe
+        isGlobalAdmin:
+          type: boolean
+          example: false
+          description: Whether user has global admin privileges
+
+    TenantInfo:
+      type: object
+      required:
+        - tenantId
+        - name
+        - role
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          example: Smith Family
+        role:
+          type: string
+          enum: [Owner, Member]
+          example: Owner
+
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - error
+        - message
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+          example: Detailed error description

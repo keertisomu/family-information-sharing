@@ -1,0 +1,25 @@
+meta {
+  name: Delete Event
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{base_url}}/api/v1/events/{{event_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Delete a calendar event.
+  Only event creator or tenant owner can delete.
+  
+  Path Parameters:
+  - eventId (required): UUID of the event
+  
+  Response: 204 No Content on success
+}

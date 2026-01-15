@@ -1,0 +1,26 @@
+meta {
+  name: List Tenants
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/v1/tenants?page={{page}}&limit={{limit}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Global admin retrieves list of all tenants in the system.
+  Regular users receive 403.
+  
+  Query Parameters:
+  - page (optional): Page number (default: 1)
+  - limit (optional): Items per page (default: 20, max: 100)
+  
+  Response: TenantListResponse with paginated tenant list
+}

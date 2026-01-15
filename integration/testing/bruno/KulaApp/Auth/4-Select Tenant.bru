@@ -1,0 +1,30 @@
+meta {
+  name: Select Tenant
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/select-tenant
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "tenantId": "{{tenant_id}}"
+  }
+}
+
+docs {
+  User selects a tenant to work with. Updates the JWT claim for the selected tenant context.
+  
+  Request Body:
+  - tenantId (required): UUID of the tenant to select
+  
+  Response: AuthResponse with updated JWT containing tenant context
+}

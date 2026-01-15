@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: family-calendar-postgres
+    environment:
+      POSTGRES_DB: family_calendar
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - family-calendar-network
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: family-calendar-mailhog
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI port
+    networks:
+      - family-calendar-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: family-calendar-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=family_calendar;Username=postgres;Password=postgres123"
+      Google__ClientId: "placeholder-client-id.apps.googleusercontent.com"
+      Google__ClientSecret: "placeholder-client-secret"
+      Smtp__Host: "mailhog"
+      Smtp__Port: "1025"
+      Smtp__FromEmail: "noreply@familycalendar.local"
+      Smtp__FromName: "Family Calendar"
+      Smtp__Username: ""
+      Smtp__Password: ""
+      Smtp__UseSsl: "false"
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - family-calendar-network
+    volumes:
+      - ./src/FamilyCalendar.Api:/app/src/FamilyCalendar.Api:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  family-calendar-network:
+    driver: bridge

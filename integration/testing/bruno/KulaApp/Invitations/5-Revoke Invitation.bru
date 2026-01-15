@@ -1,0 +1,25 @@
+meta {
+  name: Revoke Invitation
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{base_url}}/api/v1/invitations/{{invitation_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Tenant owner revokes a pending invitation.
+  Sets status to Revoked (soft delete).
+  
+  Path Parameters:
+  - invitationId (required): UUID of the invitation
+  
+  Response: 204 No Content on success
+}

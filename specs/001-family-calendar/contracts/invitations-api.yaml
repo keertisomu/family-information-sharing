@@ -1,0 +1,341 @@
+openapi: 3.0.3
+info:
+  title: Family Calendar API - Invitations
+  description: Tenant member invitation management
+  version: 1.0.0
+servers:
+  - url: https://api.familycalendar.com/api/v1
+    description: Production server
+  - url: http://localhost:5000/api/v1
+    description: Development server
+
+paths:
+  /tenants/{tenantId}/invitations:
+    post:
+      summary: Create invitation
+      description: |
+        Tenant owner invites a user by email to join the tenant.
+        Sends email notification to the invited email address.
+        Invitation expires after 24 hours (no renewal).
+      operationId: createInvitation
+      tags:
+        - Invitations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+      responses:
+        '201':
+          description: Invitation created and email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationResponse'
+        '400':
+          description: Invalid request (e.g. user already member, duplicate pending invitation)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 400
+                error: Bad Request
+                message: User already has a pending invitation
+        '403':
+          description: Forbidden - not tenant owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List tenant invitations
+      description: |
+        Owner retrieves all invitations for their tenant (pending, accepted, expired, revoked).
+      operationId: listTenantInvitations
+      tags:
+        - Invitations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [Pending, Accepted, Expired, Revoked]
+          description: Filter by invitation status (optional)
+      responses:
+        '200':
+          description: Invitation list
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InvitationResponse'
+        '403':
+          description: Forbidden - not tenant owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /invitations:
+    get:
+      summary: List user's invitations
+      description: |
+        Retrieve all pending invitations for the authenticated user's email.
+        Only returns invitations with status=Pending and not expired.
+      operationId: listMyInvitations
+      tags:
+        - Invitations
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User's pending invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InvitationResponse'
+
+  /invitations/{invitationId}/accept:
+    post:
+      summary: Accept invitation
+      description: |
+        User accepts invitation to join a tenant.
+        Validates:
+        - Invitation exists and status=Pending
+        - Invitation not expired (created_at + 24h > now)
+        - User email matches invited_email
+        On success:
+        - Creates TenantMember record with role=Member
+        - Updates invitation status to Accepted
+      operationId: acceptInvitation
+      tags:
+        - Invitations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Invitation accepted, now a tenant member
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - tenantId
+                properties:
+                  message:
+                    type: string
+                    example: Successfully joined Smith Family
+                  tenantId:
+                    type: string
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+        '400':
+          description: Invalid operation (already member, expired, wrong email)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                expired:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Invitation expired (valid for 24 hours only)
+                alreadyMember:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Already a member of this tenant
+                wrongEmail:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    message: This invitation was sent to a different email
+        '404':
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /invitations/{invitationId}:
+    delete:
+      summary: Revoke invitation
+      description: |
+        Tenant owner revokes a pending invitation.
+        Sets status to Revoked (soft delete).
+      operationId: revokeInvitation
+      tags:
+        - Invitations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Invitation revoked
+        '400':
+          description: Cannot revoke (already accepted/expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - not tenant owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateInvitationRequest:
+      type: object
+      required:
+        - invitedEmail
+      properties:
+        invitedEmail:
+          type: string
+          format: email
+          example: jane.doe@gmail.com
+          description: Email address of the person to invite
+
+    InvitationResponse:
+      type: object
+      required:
+        - invitationId
+        - tenantId
+        - tenantName
+        - invitedEmail
+        - invitedBy
+        - status
+        - createdAt
+        - expiresAt
+      properties:
+        invitationId:
+          type: string
+          format: uuid
+          example: 789e0123-e89b-12d3-a456-426614174999
+        tenantId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        tenantName:
+          type: string
+          example: Smith Family
+        invitedEmail:
+          type: string
+          format: email
+          example: jane.doe@gmail.com
+        invitedBy:
+          type: object
+          required:
+            - userId
+            - name
+            - email
+          properties:
+            userId:
+              type: string
+              format: uuid
+              example: 123e4567-e89b-12d3-a456-426614174000
+            name:
+              type: string
+              example: John Smith
+            email:
+              type: string
+              format: email
+              example: john.smith@gmail.com
+        status:
+          type: string
+          enum: [Pending, Accepted, Expired, Revoked]
+          example: Pending
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-12-06T10:00:00Z'
+        expiresAt:
+          type: string
+          format: date-time
+          example: '2025-12-07T10:00:00Z'
+          description: Calculated as created_at + 24 hours
+
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - error
+        - message
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+          example: Detailed error description

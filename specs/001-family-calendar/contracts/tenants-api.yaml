@@ -1,0 +1,440 @@
+openapi: 3.0.3
+info:
+  title: Family Calendar API - Tenants
+  description: Tenant management (global admin only)
+  version: 1.0.0
+servers:
+  - url: https://api.familycalendar.com/api/v1
+    description: Production server
+  - url: http://localhost:5000/api/v1
+    description: Development server
+
+paths:
+  /tenants:
+    post:
+      summary: Create new tenant
+      description: |
+        Global admin creates a new tenant (family workspace) and designates an owner.
+        Only users with is_global_admin=true can call this endpoint.
+      operationId: createTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - not a global admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 403
+                error: Forbidden
+                message: Only global admins can create tenants
+
+    get:
+      summary: List all tenants (admin only)
+      description: |
+        Global admin retrieves list of all tenants in the system.
+        Regular users receive 403.
+      operationId: listTenants
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        '200':
+          description: Tenant list retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantListResponse'
+        '403':
+          description: Forbidden - not a global admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tenants/{tenantId}:
+    get:
+      summary: Get tenant details
+      description: |
+        Retrieve tenant details. Accessible by:
+        - Global admins (any tenant)
+        - Tenant owner
+        - Tenant members
+      operationId: getTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '403':
+          description: Forbidden - not authorized for this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update tenant
+      description: |
+        Update tenant name/description. Accessible by:
+        - Global admins
+        - Tenant owner only
+      operationId: updateTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Tenant updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '403':
+          description: Forbidden - not owner or admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete tenant
+      description: |
+        Permanently delete tenant and all associated data (members, invitations, events).
+        Accessible by:
+        - Global admins
+        - Tenant owner only
+      operationId: deleteTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Tenant deleted
+        '403':
+          description: Forbidden - not owner or admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tenants/{tenantId}/members:
+    get:
+      summary: List tenant members
+      description: Retrieve all members of a tenant
+      operationId: listTenantMembers
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member list
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TenantMember'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Remove tenant member
+      description: |
+        Remove a member from the tenant. Owner only.
+        Cannot remove the owner themselves.
+      operationId: removeTenantMember
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+        '400':
+          description: Cannot remove owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - not owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateTenantRequest:
+      type: object
+      required:
+        - name
+        - ownerEmail
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: Smith Family
+          description: Tenant display name
+        description:
+          type: string
+          nullable: true
+          example: Calendar for Smith family coordination
+          description: Optional tenant description
+        ownerEmail:
+          type: string
+          format: email
+          example: john.smith@gmail.com
+          description: Email of the user who will be the owner (must exist in system)
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: Smith-Johnson Family
+        description:
+          type: string
+          nullable: true
+          example: Updated description
+
+    TenantResponse:
+      type: object
+      required:
+        - tenantId
+        - name
+        - ownerId
+        - createdAt
+        - updatedAt
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          example: Smith Family
+        description:
+          type: string
+          nullable: true
+          example: Calendar for Smith family coordination
+        ownerId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        ownerName:
+          type: string
+          example: John Smith
+        ownerEmail:
+          type: string
+          format: email
+          example: john.smith@gmail.com
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-12-06T10:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2025-12-06T10:00:00Z'
+
+    TenantListResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantResponse'
+        meta:
+          type: object
+          required:
+            - page
+            - limit
+            - total
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 20
+            total:
+              type: integer
+              example: 45
+
+    TenantMember:
+      type: object
+      required:
+        - userId
+        - email
+        - name
+        - role
+        - joinedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: jane.smith@gmail.com
+        name:
+          type: string
+          example: Jane Smith
+        role:
+          type: string
+          enum: [Owner, Member]
+          example: Member
+        joinedAt:
+          type: string
+          format: date-time
+          example: '2025-12-06T11:00:00Z'
+
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - error
+        - message
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+          example: Detailed error description

@@ -1,0 +1,50 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.swp
+*.DS_Store
+.vs/
+.vscode/
+*.log
+
+## Sensitive files
+appsettings.Development.json
+appsettings.*.json
+!appsettings.json
+*.pfx
+*.key
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Rider
+.idea/
+*.sln.iml
+
+## User-specific files
+*.rsuser
+
+## Database
+*.db
+*.db-shm
+*.db-wal
+
+## Node modules (if frontend added later)
+node_modules/
+
+## Bruno environments (keep example env committed)
+integration/testing/bruno/**/environments/*.bru
+!integration/testing/bruno/**/environments/*.example.bru

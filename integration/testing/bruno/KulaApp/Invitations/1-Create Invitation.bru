@@ -1,0 +1,35 @@
+meta {
+  name: Create Invitation
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/v1/tenants/{{tenant_id}}/invitations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "invitedEmail": "keertikulatest@gmail.com"
+  }
+}
+
+docs {
+  Tenant owner invites a user by email to join the tenant.
+  Sends email notification to the invited email address.
+  Invitation expires after 24 hours (no renewal).
+  
+  Path Parameters:
+  - tenantId (required): UUID of the tenant
+  
+  Request Body:
+  - invitedEmail (required): Email address of the user to invite
+  
+  Response: InvitationResponse with invitationId and details
+}

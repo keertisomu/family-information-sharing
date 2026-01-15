@@ -1,0 +1,3 @@
+# Ignore appsettings with secrets
+appsettings.*.json
+!appsettings.json

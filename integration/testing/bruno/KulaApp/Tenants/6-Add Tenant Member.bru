@@ -1,0 +1,36 @@
+meta {
+  name: Add Tenant Member
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/api/v1/tenants/{{tenant_id}}/members
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "userId": "{{user_id}}",
+    "role": "Member"
+  }
+}
+
+docs {
+  Add an existing user as a member to the tenant.
+  Only tenant owner can add members.
+  
+  Path Parameters:
+  - tenantId (required): UUID of the tenant
+  
+  Request Body:
+  - userId (required): UUID of the user to add
+  - role (optional): Role (default: Member)
+  
+  Response: TenantMemberResponse
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Google Login
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/v1/auth/google/login
+  body: none
+  auth: none
+}
+
+docs {
+  Initiates Google OAuth flow and redirects user to Google OAuth consent screen.
+}

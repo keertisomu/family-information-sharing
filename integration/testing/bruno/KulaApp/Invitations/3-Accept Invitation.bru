@@ -1,0 +1,26 @@
+meta {
+  name: Accept Invitation
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/v1/invitations/{{invitation_id}}/accept
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  User accepts invitation to join a tenant.
+  Validates invitation exists, status=Pending, not expired, and email matches.
+  Creates TenantMember record with role=Member.
+  
+  Path Parameters:
+  - invitationId (required): UUID of the invitation
+  
+  Response: Success message with tenantId
+}

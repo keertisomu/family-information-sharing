@@ -1,0 +1,27 @@
+meta {
+  name: List Events
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/v1/events?startDate={{start_date}}&endDate={{end_date}}&search={{search_text}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Retrieve events with filtering and pagination.
+  All events are scoped to the current tenant (from JWT claim).
+  
+  Query Parameters:
+  - startDate (required): Start of date range (ISO 8601, e.g., 2025-12-01T00:00:00Z)
+  - endDate (required): End of date range (ISO 8601, max 4 weeks span)
+  - search (optional): Text search in title and description (case-insensitive)
+  
+  Response: Array of EventResponse
+}

@@ -1,0 +1,22 @@
+meta {
+  name: List My Invitations
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/api/v1/invitations
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Retrieve all pending invitations for the authenticated user's email.
+  Only returns invitations with status=Pending and not expired.
+  
+  Response: Array of InvitationResponse with pending invitations
+}
