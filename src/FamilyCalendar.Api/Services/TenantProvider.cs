@@ -27,7 +27,9 @@ public class TenantProvider : ITenantProvider
         var claim = httpContext.User.FindFirst("tenant_id");
         if (claim == null || !Guid.TryParse(claim.Value, out var tenantId))
         {
-            throw new UnauthorizedAccessException("No tenant context available");
+            // User is authenticated but not part of any tenant yet (e.g., accepting initial invitation)
+            // Return Guid.Empty to filter out all tenants from unfiltered queries
+            return Guid.Empty;
         }
         return tenantId;
     }
