@@ -144,6 +144,7 @@ public class AcceptInvitationResponse
 
 public class CreateEventRequest
 {
+    [System.ComponentModel.DataAnnotations.StringLength(500, MinimumLength = 1, ErrorMessage = "Title is required and must not be empty")]
     public required string Title { get; set; }
     public string? Description { get; set; }
     public DateTime StartTime { get; set; }
