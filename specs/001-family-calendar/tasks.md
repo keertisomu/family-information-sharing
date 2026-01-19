@@ -147,16 +147,16 @@ Based on plan.md structure:
 
 ### Implementation for User Story 3
 
-- [ ] T053 [P] [US3] Create EventsController in src/FamilyCalendar.Api/Controllers/EventsController.cs (skeleton with [Authorize])
-- [ ] T054 [US3] Implement POST /api/v1/events in EventsController (creates event with tenant_id from JWT, validates start_time < end_time)
-- [ ] T055 [US3] Add validation for assigned_to field in POST /api/v1/events (if provided, must be tenant member)
-- [ ] T056 [US3] Implement GET /api/v1/events/{eventId} in EventsController (tenant-scoped, returns single event)
-- [ ] T057 [US3] Implement PUT /api/v1/events/{eventId} in EventsController (updates event, validates start_time < end_time and assigned_to membership)
-- [ ] T058 [US3] Implement DELETE /api/v1/events/{eventId} in EventsController (hard delete event)
-- [ ] T059 [US3] Add error handling for event endpoints (400 for invalid times/assignment, 403 for cross-tenant access, 404 for not found)
-- [ ] T060 [US3] Add structured logging for event operations (create, update, delete with event_id, tenant_id, user_id)
+- [x] T053 [P] [US3] Create EventsController in src/FamilyCalendar.Api/Controllers/EventsController.cs (skeleton with [Authorize])
+- [x] T054 [US3] Implement POST /api/v1/events in EventsController (creates event with tenant_id from JWT, validates start_time < end_time)
+- [x] T055 [US3] Add validation for assigned_to field in POST /api/v1/events (if provided, must be tenant member)
+- [x] T056 [US3] Implement GET /api/v1/events/{eventId} in EventsController (tenant-scoped, returns single event)
+- [x] T057 [US3] Implement PUT /api/v1/events/{eventId} in EventsController (updates event, validates start_time < end_time and assigned_to membership)
+- [x] T058 [US3] Implement DELETE /api/v1/events/{eventId} in EventsController (hard delete event)
+- [x] T059 [US3] Add error handling for event endpoints (400 for invalid times/assignment, 403 for cross-tenant access, 404 for not found)
+- [x] T060 [US3] Add structured logging for event operations (create, update, delete with event_id, tenant_id, user_id)
 
-**Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently - full event CRUD within tenant boundaries
+**Checkpoint**: ✅ At this point, User Stories 1, 2, AND 3 should all work independently - full event CRUD within tenant boundaries
 
 ---
 

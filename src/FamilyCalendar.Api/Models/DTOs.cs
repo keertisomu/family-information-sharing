@@ -138,3 +138,54 @@ public class AcceptInvitationResponse
     public required string Message { get; set; }
     public Guid TenantId { get; set; }
 }
+/// <summary>
+/// DTO classes for event API requests and responses
+/// </summary>
+
+public class CreateEventRequest
+{
+    public required string Title { get; set; }
+    public string? Description { get; set; }
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
+    public string? Location { get; set; }
+    public Guid? AssignedTo { get; set; }
+}
+
+public class UpdateEventRequest
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
+    public string? Location { get; set; }
+    public Guid? AssignedTo { get; set; }
+}
+
+public class EventResponse
+{
+    public Guid EventId { get; set; }
+    public Guid TenantId { get; set; }
+    public required string Title { get; set; }
+    public string? Description { get; set; }
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
+    public string? Location { get; set; }
+    public UserDetails? AssignedTo { get; set; }
+    public required UserDetails CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public class UserDetails
+{
+    public Guid UserId { get; set; }
+    public required string Name { get; set; }
+    public required string Email { get; set; }
+}
+
+public class EventListResponse
+{
+    public required List<EventResponse> Data { get; set; }
+    public required PaginationMeta Meta { get; set; }
+}
