@@ -31,7 +31,7 @@ Based on plan.md structure:
 
 - [x] T001 Create .NET solution and API project structure in src/FamilyCalendar.Api/
 - [x] T002 Install NuGet packages (ASP.NET Core 8.0, EF Core 8.0, Npgsql, Google.Apis.Auth, MailKit)
-- [x] T003 [P] Create appsettings.json with database connection strings, Google OAuth config, JWT config, SMTP config
+- [x] T003 [P] Create appsettings.json with database connection strings, Google OAuth config, JWT config, SMTP config (Smtp:Host, Smtp:Port, Smtp:Username, Smtp:Password, Smtp:UseSsl, Smtp:FromEmail, Smtp:FromName)
 - [x] T004 [P] Configure .gitignore for appsettings.Development.json and sensitive files
 - [x] T005 [P] Create README.md with quickstart instructions from specs/001-family-calendar/quickstart.md
 
@@ -56,10 +56,10 @@ Based on plan.md structure:
 ### Database & ORM Foundation
 
 - [x] T006 Create ApplicationDbContext in src/FamilyCalendar.Api/Data/ApplicationDbContext.cs with DbSet properties
-- [x] T007 [P] Create User entity in src/FamilyCalendar.Api/Models/User.cs (UserId, GoogleId, Email, Name, IsGlobalAdmin)
+- [x] T007 [P] Create User entity in src/FamilyCalendar.Api/Models/User.cs (UserId, GoogleId, Email, Name, IsGlobalAdmin, EmailOptOut default false)
 - [x] T008 [P] Create Tenant entity in src/FamilyCalendar.Api/Models/Tenant.cs (TenantId, Name, Description, OwnerId)
 - [x] T009 [P] Create TenantMember entity in src/FamilyCalendar.Api/Models/TenantMember.cs (TenantMemberId, TenantId, UserId, Role)
-- [x] T010 [P] Create Invitation entity in src/FamilyCalendar.Api/Models/Invitation.cs (InvitationId, TenantId, InvitedEmail, InviterId, Status, ExpiresAt)
+- [x] T010 [P] Create Invitation entity in src/FamilyCalendar.Api/Models/Invitation.cs (InvitationId, TenantId, InvitedEmail, InviterId, Status, EmailSentAt nullable, ExpiresAt)
 - [x] T011 [P] Create CalendarEvent entity in src/FamilyCalendar.Api/Models/CalendarEvent.cs (EventId, TenantId, CreatorId, AssignedTo, Title, Description, StartTime, EndTime)
 - [x] T012 Configure entity relationships and indexes in ApplicationDbContext.OnModelCreating()
 - [x] T013 Create initial EF Core migration (dotnet ef migrations add InitialCreate)
@@ -72,8 +72,9 @@ Based on plan.md structure:
 - [x] T017 Configure JWT authentication in Program.cs with Microsoft.AspNetCore.Authentication.JwtBearer
 - [x] T018 Configure Google OAuth in Program.cs with AddGoogle() extension
 - [x] T019 [P] Create JwtTokenService in src/FamilyCalendar.Api/Services/JwtTokenService.cs (GenerateAccessToken, GenerateRefreshToken)
-- [x] T020 [P] Create IEmailService interface in src/FamilyCalendar.Api/Services/IEmailService.cs
-- [x] T021 [P] Implement SmtpEmailService with MailKit in src/FamilyCalendar.Api/Services/SmtpEmailService.cs
+- [x] T020 [P] Create IEmailService interface in src/FamilyCalendar.Api/Services/IEmailService.cs (SendInvitationEmailAsync with retry support)
+- [x] T021 [P] Implement SmtpEmailService in src/FamilyCalendar.Api/Services/SmtpEmailService.cs with MailKit library, basic HTML generation (inline CSS), exponential backoff retry logic (1s, 4s, 16s), and plain text fallback
+- [x] T021a [P] Add email opt-out check in SmtpEmailService (skip sending if user has EmailOptOut=true, set EmailSentAt=null)
 
 ### Middleware & Infrastructure
 
@@ -98,9 +99,10 @@ Based on plan.md structure:
 - [x] T027 [P] [US1] Create AuthController in src/FamilyCalendar.Api/Controllers/AuthController.cs (skeleton)
 - [x] T028 [P] [US1] Create TenantsController in src/FamilyCalendar.Api/Controllers/TenantsController.cs (skeleton with [Authorize] attribute)
 - [x] T029 [US1] Implement GET /api/v1/auth/google/login in AuthController (redirects to Google OAuth)
-- [x] T030 [US1] Implement GET /api/v1/auth/google/callback in AuthController (validates code, creates/updates User, generates JWT tokens)
+- [x] T030 [US1] Implement GET /api/v1/auth/google/callback in AuthController (validates code, creates/updates User, generates temporary JWT without tenant_id for tenant selection)
 - [x] T031 [US1] Implement POST /api/v1/auth/refresh in AuthController (validates refresh token, generates new access token)
-- [x] T032 [US1] Implement POST /api/v1/auth/select-tenant in AuthController (validates tenant membership, generates new JWT with updated tenant_id)
+- [x] T032 [US1] Implement GET /api/v1/auth/tenants in AuthController (lists all tenants user belongs to with role information)
+- [x] T032a [US1] Implement POST /api/v1/auth/select-tenant in AuthController (validates tenant membership, generates tenant-scoped JWT with tenant_id and role)
 - [x] T033 [US1] Implement POST /api/v1/tenants in TenantsController (global admin only, creates tenant with designated owner, validates owner email exists)
 - [x] T034 [US1] Implement GET /api/v1/tenants in TenantsController (global admin sees all tenants)
 - [x] T035 [US1] Implement GET /api/v1/tenants/{tenantId} in TenantsController (admin/owner/member can view their tenant)
@@ -125,7 +127,7 @@ Based on plan.md structure:
 
 - [x] T042 [P] [US2] Create InvitationsController in src/FamilyCalendar.Api/Controllers/InvitationsController.cs (skeleton with [Authorize])
 - [x] T043 [US2] Implement POST /api/v1/tenants/{tenantId}/invitations in InvitationsController (owner only, creates invitation, calculates expires_at as created_at + 24h)
-- [x] T044 [US2] Integrate IEmailService in POST /api/v1/tenants/{tenantId}/invitations to send email notification (tenant name, inviter name, accept URL)
+- [x] T044 [US2] Integrate IEmailService in POST /api/v1/tenants/{tenantId}/invitations to send email with retry logic (tenant name, inviter name, accept URL, unsubscribe link); fail invitation creation if email fails after 3 retries; skip email if invitee has EmailOptOut=true
 - [x] T045 [US2] Implement GET /api/v1/tenants/{tenantId}/invitations in InvitationsController (owner retrieves all tenant invitations with optional status filter)
 - [x] T046 [US2] Implement GET /api/v1/invitations in InvitationsController (user retrieves their pending invitations by email, filters status=Pending and not expired)
 - [x] T047 [US2] Implement POST /api/v1/invitations/{invitationId}/accept in InvitationsController (validates email match, not expired, creates TenantMember with role=Member)
@@ -134,49 +136,70 @@ Based on plan.md structure:
 - [x] T050 [US2] Add validation for invitations (email format, duplicate check, expiry check on acceptance)
 - [x] T051 [US2] Add error handling for invitation endpoints (400 for expired/duplicate, 403 for non-owner, 404 for not found)
 - [x] T052 [US2] Add structured logging for invitation operations (create, accept, revoke with tenant_id, inviter_id, invited_email)
+- [ ] T052a [P] [US2] Implement GET /api/v1/auth/unsubscribe in AuthController (accepts token/email param, sets EmailOptOut=true for user)
+- [ ] T052b [P] [US2] Implement POST /api/v1/auth/email-preferences in AuthController (allows user to toggle EmailOptOut flag)
+- [ ] T052c [US2] Update invitation email template to include unsubscribe link with token pointing to GET /api/v1/auth/unsubscribe
 
-**Checkpoint**: ✅ At this point, User Stories 1 AND 2 should both work independently - admin creates tenants, owners invite members
+**Checkpoint**: ✅ At this point, User Stories 1 AND 2 should both work independently - admin creates tenants, owners invite members, email opt-out works
 
 ---
 
-## Phase 5: User Story 3 - Family Members Manage Calendar Events (Priority: P3)
+## Phase 4.5: User Story 4 - User Selects Tenant Context After Login (Priority: P2)
+
+**Goal**: Users who belong to multiple tenants must explicitly select which tenant context to work in, receiving a tenant-scoped JWT
+
+**Independent Test**: Create user in multiple tenants, authenticate, list tenants, select one, verify JWT contains correct tenant_id, switch to different tenant
+
+### Implementation for User Story 4
+
+- [ ] T052d [US4] Verify GET /api/v1/auth/tenants endpoint from T032 returns tenant list with names and user roles
+- [ ] T052e [US4] Verify POST /api/v1/auth/select-tenant endpoint from T032a generates JWT with tenant_id claim
+- [ ] T052f [US4] Add validation in all tenant-scoped endpoints to verify tenant_id in JWT matches requested resource tenant
+- [ ] T052g [US4] Add error handling for tenant selection (404 if tenant doesn't exist, 403 if user not a member)
+- [ ] T052h [US4] Add structured logging for tenant selection operations (user_id, selected tenant_id)
+
+**Checkpoint**: At this point, User Story 4 should be functional - users can list and select tenants, receiving tenant-scoped JWTs
+
+---
+
+## Phase 5: User Story 5 - Family Members Manage Calendar Events (Priority: P3)
 
 **Goal**: Tenant members can create, view, edit, and delete calendar events with tenant isolation
 
 **Independent Test**: Tenant member performs CRUD operations on events and verifies changes persist and are visible to all tenant members, cross-tenant access blocked
 
-### Implementation for User Story 3
+### Implementation for User Story 5
 
-- [x] T053 [P] [US3] Create EventsController in src/FamilyCalendar.Api/Controllers/EventsController.cs (skeleton with [Authorize])
-- [x] T054 [US3] Implement POST /api/v1/events in EventsController (creates event with tenant_id from JWT, validates start_time < end_time)
-- [x] T055 [US3] Add validation for assigned_to field in POST /api/v1/events (if provided, must be tenant member)
-- [x] T056 [US3] Implement GET /api/v1/events/{eventId} in EventsController (tenant-scoped, returns single event)
-- [x] T057 [US3] Implement PUT /api/v1/events/{eventId} in EventsController (updates event, validates start_time < end_time and assigned_to membership)
-- [x] T058 [US3] Implement DELETE /api/v1/events/{eventId} in EventsController (hard delete event)
-- [x] T059 [US3] Add error handling for event endpoints (400 for invalid times/assignment, 403 for cross-tenant access, 404 for not found)
-- [x] T060 [US3] Add structured logging for event operations (create, update, delete with event_id, tenant_id, user_id)
+- [x] T053 [P] [US5] Create EventsController in src/FamilyCalendar.Api/Controllers/EventsController.cs (skeleton with [Authorize])
+- [x] T054 [US5] Implement POST /api/v1/events in EventsController (creates event with tenant_id from JWT, validates start_time < end_time)
+- [x] T055 [US5] Add validation for assigned_to field in POST /api/v1/events (if provided, must be tenant member)
+- [x] T056 [US5] Implement GET /api/v1/events/{eventId} in EventsController (tenant-scoped, returns single event)
+- [x] T057 [US5] Implement PUT /api/v1/events/{eventId} in EventsController (updates event, validates start_time < end_time and assigned_to membership)
+- [x] T058 [US5] Implement DELETE /api/v1/events/{eventId} in EventsController (hard delete event)
+- [x] T059 [US5] Add error handling for event endpoints (400 for invalid times/assignment, 403 for cross-tenant access, 404 for not found)
+- [x] T060 [US5] Add structured logging for event operations (create, update, delete with event_id, tenant_id, user_id)
 
-**Checkpoint**: ✅ At this point, User Stories 1, 2, AND 3 should all work independently - full event CRUD within tenant boundaries
+**Checkpoint**: ✅ At this point, User Stories 1, 2, 4, AND 5 should all work independently - full event CRUD within tenant boundaries
 
 ---
 
-## Phase 6: User Story 4 - Retrieve and Filter Calendar Events (Priority: P4)
+## Phase 6: User Story 6 - Retrieve and Filter Calendar Events (Priority: P4)
 
 **Goal**: Tenant members can retrieve events with date range filtering (max 4 weeks) and text search
 
 **Independent Test**: Create events across multiple weeks, query with date ranges and search filters, verify correct results returned
 
-### Implementation for User Story 4
+### Implementation for User Story 6
 
-- [ ] T061 [US4] Implement GET /api/v1/events in EventsController with query parameters (startDate required, endDate required, search optional, assignedTo optional, page, limit)
-- [ ] T062 [US4] Add date range validation in GET /api/v1/events (max 4 weeks span between startDate and endDate)
-- [ ] T063 [US4] Implement case-insensitive text search on title and description using ILIKE in GET /api/v1/events query
-- [ ] T064 [US4] Implement filtering by assignedTo user in GET /api/v1/events query
-- [ ] T065 [US4] Implement pagination in GET /api/v1/events (page and limit parameters, return meta with total count)
-- [ ] T066 [US4] Add sorting by start_time ascending in GET /api/v1/events query
-- [ ] T067 [US4] Optimize query with composite index on (tenant_id, start_time) per data-model.md
-- [ ] T068 [US4] Add error handling for invalid date ranges (400 for exceeding 4 weeks)
-- [ ] T069 [US4] Add structured logging for event queries (search text, date range, tenant_id)
+- [ ] T061 [US6] Implement GET /api/v1/events in EventsController with query parameters (startDate required, endDate required, search optional, assignedTo optional, page, limit)
+- [ ] T062 [US6] Add date range validation in GET /api/v1/events (max 4 weeks span between startDate and endDate)
+- [ ] T063 [US6] Implement case-insensitive text search on title and description using ILIKE in GET /api/v1/events query
+- [ ] T064 [US6] Implement filtering by assignedTo user in GET /api/v1/events query
+- [ ] T065 [US6] Implement pagination in GET /api/v1/events (page and limit parameters, return meta with total count)
+- [ ] T066 [US6] Add sorting by start_time ascending in GET /api/v1/events query
+- [ ] T067 [US6] Optimize query with composite index on (tenant_id, start_time) per data-model.md
+- [ ] T068 [US6] Add error handling for invalid date ranges (400 for exceeding 4 weeks)
+- [ ] T069 [US6] Add structured logging for event queries (search text, date range, tenant_id)
 
 **Checkpoint**: All user stories should now be independently functional - complete calendar system with filtering
 
@@ -215,8 +238,9 @@ Based on plan.md structure:
 
 - **User Story 1 (P1)**: Can start after Foundational (Phase 2) - Creates foundation for all other stories
 - **User Story 2 (P2)**: Can start after Foundational (Phase 2) - Requires US1 tenants but independently testable (create tenant, then test invitations)
-- **User Story 3 (P3)**: Can start after Foundational (Phase 2) - Requires US1 tenants and US2 members but independently testable (create tenant, add member, then test events)
-- **User Story 4 (P4)**: Must complete after US3 - Extends event querying, requires events to exist
+- **User Story 4 (P2)**: Can start after US1 - Tenant selection flow integrated into authentication
+- **User Story 5 (P3)**: Can start after Foundational (Phase 2) - Requires US1 tenants, US2 members, and US4 tenant selection but independently testable (create tenant, add member, select tenant, then test events)
+- **User Story 6 (P4)**: Must complete after US5 - Extends event querying, requires events to exist
 
 ### Within Each User Story
 
@@ -287,11 +311,12 @@ Task: "Implement GET /api/v1/tenants/{tenantId}/members in TenantsController" # 
 1. Complete Setup + Docker + Foundational → Foundation ready (~1.5-2 days)
 2. Add User Story 1 → Test independently → Deploy/Demo (MVP! ~1 day)
 3. Add User Story 2 → Test independently → Deploy/Demo (~1 day)
-4. Add User Story 3 → Test independently → Deploy/Demo (~1 day)
-5. Add User Story 4 → Test independently → Deploy/Demo (~0.5 days)
-6. Polish Phase → Production-ready (~0.5 days)
+4. Add User Story 4 → Test independently → Deploy/Demo (~0.5 days)
+5. Add User Story 5 → Test independently → Deploy/Demo (~1 day)
+6. Add User Story 6 → Test independently → Deploy/Demo (~0.5 days)
+7. Polish Phase → Production-ready (~0.5 days)
 
-**Total Estimated Time**: 5.5-6.5 days for full implementation
+**Total Estimated Time**: 6-7 days for full implementation
 
 ### Parallel Team Strategy
 
@@ -301,9 +326,10 @@ With multiple developers:
 2. **Day 1-2**: Team completes Foundational together (pair programming recommended for foundation)
 3. **Day 2+**: Once Foundational is done:
    - **Developer A**: User Story 1 (Authentication + Tenants)
-   - **Developer B**: User Story 2 (Invitations) - can start after US1 completes
-   - **Developer C**: User Story 3 (Events) - can start after US1/US2 complete
-   - **Developer D**: User Story 4 (Filtering) - can start after US3 completes
+   - **Developer B**: User Story 2 (Invitations + Email) - can start after US1 completes
+   - **Developer C**: User Story 4 (Tenant Selection) - can start after US1 completes
+   - **Developer D**: User Story 5 (Events) - can start after US1/US2/US4 complete
+   - **Developer E**: User Story 6 (Filtering) - can start after US5 completes
 3. Stories complete and integrate independently, merge to main as each completes
 
 **Parallel Benefits**: With 2-3 developers, can complete in 3-4 days instead of 5-6 days
@@ -312,34 +338,36 @@ With multiple developers:
 
 ## Task Counts & Statistics
 
-**Total Tasks**: 81
+**Total Tasks**: 88
 
 **By Phase**:
 - Phase 1 (Setup): 5 tasks ✅ Complete
-- Phase 1.5 (Docker Setup): 3 tasks
-- Phase 2 (Foundational): 21 tasks (CRITICAL PATH)
-- Phase 3 (US1 - Admin Creates Tenants): 15 tasks
-- Phase 4 (US2 - Invite Members): 11 tasks
-- Phase 5 (US3 - Event CRUD): 8 tasks
-- Phase 6 (US4 - Event Filtering): 9 tasks
+- Phase 1.5 (Docker Setup): 3 tasks ✅ Complete
+- Phase 2 (Foundational): 22 tasks (CRITICAL PATH) ✅ Complete
+- Phase 3 (US1 - Admin Creates Tenants): 16 tasks ✅ Complete
+- Phase 4 (US2 - Invite Members): 14 tasks ✅ Complete (email opt-out tasks pending)
+- Phase 4.5 (US4 - Tenant Selection): 5 tasks
+- Phase 5 (US5 - Event CRUD): 8 tasks ✅ Complete
+- Phase 6 (US6 - Event Filtering): 9 tasks
 - Phase 7 (Polish): 9 tasks
 
-**Parallelizable Tasks**: 28 tasks marked with [P] (~35% of total)
+**Parallelizable Tasks**: 30 tasks marked with [P] (~34% of total)
 
 **Independent Test Criteria per Story**:
 - **US1**: Admin authenticates, creates tenant "Test Family", verifies tenant in GET /api/v1/tenants, updates name, deletes tenant
-- **US2**: Owner invites "test@example.com", checks invitation in DB and email inbox, invited user authenticates and accepts, verifies now in tenant members
-- **US3**: Member creates event "Family Dinner" on 2025-12-15, retrieves via GET /api/v1/events/{eventId}, updates title, deletes event
-- **US4**: Create 10 events across January 2026, query GET /api/v1/events?startDate=2026-01-01&endDate=2026-01-28&search=dinner, verify only matching events returned with pagination
+- **US2**: Owner invites "test@example.com", checks invitation in DB and email inbox (HTML with unsubscribe link), invited user authenticates and accepts, verifies now in tenant members; test email opt-out flow
+- **US4**: User in multiple tenants authenticates, lists tenants via GET /api/v1/auth/tenants, selects one via POST /api/v1/auth/select-tenant, verifies JWT contains tenant_id, switches to different tenant
+- **US5**: Member creates event "Family Dinner" on 2025-12-15, retrieves via GET /api/v1/events/{eventId}, updates title, deletes event
+- **US6**: Create 10 events across January 2026, query GET /api/v1/events?startDate=2026-01-01&endDate=2026-01-28&search=dinner, verify only matching events returned with pagination
 
-**Suggested MVP Scope**: Phase 1 + Phase 1.5 + Phase 2 + Phase 3 (User Story 1 only) = 44 tasks for working multi-tenant admin system
+**Suggested MVP Scope**: Phase 1 + Phase 1.5 + Phase 2 + Phase 3 + Phase 4 (User Stories 1, 2, and 4) = 60 tasks for working multi-tenant system with invitations and tenant selection
 
 ---
 
 ## Notes
 
 - [P] tasks = different files, no dependencies, can run in parallel
-- [Story] label maps task to specific user story for traceability (US1, US2, US3, US4)
+- [Story] label maps task to specific user story for traceability (US1, US2, US4, US5, US6)
 - Each user story should be independently completable and testable
 - Tests are OPTIONAL per constitution (prototype scope) - not included
 - Commit after each task or logical group
@@ -348,3 +376,6 @@ With multiple developers:
 - All timestamps stored in UTC per data-model.md
 - Multi-tenant isolation enforced via EF Core query filters (set up in Foundational phase)
 - Global admin users created manually via scripts/create-admin.sh (Task T041)
+- Email sending uses SMTP with MailKit library, basic HTML (inline CSS), exponential backoff retry (1s, 4s, 16s), and blocks invitation creation on failure
+- Users can opt out of emails via unsubscribe link; invitations are still created but no email sent
+- JWT tokens are tenant-scoped; users must select a tenant after OAuth to receive tenant_id in token
